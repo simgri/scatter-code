@@ -1,5 +1,5 @@
-clear all;
-raw=imread('huan.png');
+raw=imread('huan1.png');
+
 
 raw=sum(double(raw),3);
 
@@ -19,13 +19,12 @@ yr=Y-yc;
 xr=X-xc;
 
 lamda=670;
-psize=(5500/1)/50;      %这啥啊      
+pixelsize=(5500/1)/50;      %这啥啊      
 NA=1.49;
 % NA=0.25;
 
 %% Generation of the PSF with Besselj.
 R=sqrt((xr).^2+(yr).^2);
-pixelsize=psize;
 pixelnum=xsize;
 rpixel=NA*pixelnum*pixelsize/lamda;          %与下面圆的半径有关，但这表达式什么意思
 [M1,N1]=meshgrid(1:pixelnum,1:pixelnum);
@@ -37,7 +36,7 @@ apsfde=fftshift(ifft2(ifftshift(ctfde)));
 ipsfde=ifftscalede*abs(apsfde).^2;
 OTFde=fftshift(fft2(ifftshift(ipsfde)));            %？处理之后的圆（低通滤波器）
 
-figure;imagesc(abs(OTFde));
+% figure;imagesc(abs(OTFde));title('Generation of PSF');
 cutoff=OTFedgeF(abs(OTFde));
 cutoff=cutoff+round(cutoff*0.05);                  %cutoff的意义是什么
 f_raw=fftshift(fft2(raw));
@@ -104,54 +103,46 @@ fourier_temp=fftshift(fft2(scatter)).*fmask;
 fourier_temp=fourier_temp.*conj(fourier_temp);
 % co_scatter=ifft2(ifftshift(fourier_temp));
 co_scatter=abs(fftshift(ifft2(fourier_temp)));            %自相关，我把这里的fft改成了ifft
+% figure;imagesc(co_scatter);pause(0.001); title('Raw autocorrelation'); %%% Autocorrelation
+% colorbar
 
-%% subtract the background from the correaltion result
+%% Subtracts background from the correlation result
 
-a_edge=8;                                                                 %这部分忽略
-a=co_scatter(1:a_edge,1:a_edge);
-a_mean=mean2(a);
-a=co_scatter(xsize-a_edge+1:xsize,1:a_edge);
-a_mean=a_mean+mean2(a);
-a=co_scatter(1:a_edge,ysize-a_edge+1:ysize);
-a_mean=a_mean+mean2(a);
-a=co_scatter(xsize-a_edge+1:xsize:xsize,ysize-a_edge+1:ysize);
-a_mean=a_mean+mean2(a);
-my_mean(1)=a_mean/4;
+%%% We calculate the mean in two different ways and take the max value
+means = zeros(1,2);
+% 1) Gets mean value of corners
+edge_temp = 8; 
+% Gets the four corners of co_scatter
+scatter_corners = co_scatter([1:edge_temp, end-edge_temp+1: end],  ...
+                             [1:edge_temp, end-edge_temp+1: end]);
+means(1) = mean2(scatter_corners);
+% 2) Gets mean value of frame and weights with max value element in it
+weight = 0.85; 
+edge_temp = round(xsize*0.08);
+compressed_frame = [co_scatter(edge_temp:end-edge_temp+1,          ...
+                   [1:edge_temp, end-edge_temp+1:end])'            ...
+                    co_scatter([1:edge_temp, end-edge_temp+1:end], :)];
+ele_count = numel(compressed_frame);
+means(2) = weight*sum(sum(compressed_frame))/ele_count             ...
+           + (1-weight)*max(compressed_frame(:));
+max_mean = max(means);
 
+%%% Creates gauss filter
+edge_temp = round(xsize*0.15);
+mask_temp = zeros(xsize,ysize);
+mask_temp(edge_temp:xsize-edge_temp+1,edge_temp:xsize-edge_temp+1) = 1;
+centered_filter = imgaussfilt(mask_temp,3); % Standard deviation = 3
 
+%%% Modifies autocorrelation
+new_scatter= (co_scatter-max_mean).*(co_scatter-max_mean>0)        ...
+              .*centered_filter;                         
 
-a_mask=zeros(xsize,ysize);                                                %看的是这部分
-a_edge=round(xsize*0.08);
-a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
-a=1-a_mask;
-a=co_scatter.*a;
-a_num=find(a~=0);
-a_size=size(a_num(:));
-my_mean(2)=sum(sum(a))./max(a_size);
-ratio=0.85;
-my_mean(2)=my_mean(2)*ratio+max(a(:))*(1-ratio);
-my_mean=max(my_mean);                                                     %把边缘的平均光强当作背景值
+%%% Displays modified autocorrelation
+im_temp = new_scatter;
+figure, imagesc(im_temp), pause(0.001), title('Autocorrelation'), colorbar
 
+%% Phase retrieval
 
-co_scatter=(co_scatter-my_mean).*(co_scatter-my_mean>0);                  %去背景
-a_edge=round(xsize*0.15);
-a_mask=zeros(xsize,ysize);
-a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
-a_mask=imgaussfilt(a_mask,3);
-co_scatter=co_scatter.*a_mask;% force edges to 0                          %去掉自相关图像的边缘（不是已经去了背景么）
-
-
-% PSFd = real(fftshift( ifft2(fftshift(abs(OTFde).^3)) ));
-% PSFd = PSFd/max(max(PSFd));
-% PSFd = PSFd/sum(sum(PSFd));
-% h = 30;
-% PSFe = PSFd(xc-h+1:xc+h,yc-h+1:yc+h);
-% 
-% co_scatter=edgetaper(co_scatter,PSFe);
-
-
-im_temp=co_scatter;
-figure;imagesc(im_temp);pause(0.001);
 % im_temp=(co_scatter./max(max(co_scatter)))*10^4;
 % im_temp=(im_temp-50).*(im_temp-50>0);
 [xsize,ysize]=size(im_temp);
@@ -176,8 +167,6 @@ b=0.7;                                                      %b的初始值
 % im_temp=abs(fftshift(fft2(f_temp)));
 % angle_f=rand([xsize,ysize]);
 
-%% Phase retrieval
-
 for ii=1:100
 
     
@@ -199,14 +188,14 @@ for ii=1:100
     end
     
     for jj=1:25
-        imangle=angle(im_temp);                                        %无效
+%%%     imangle=angle(im_temp);                                        %无效
         gk=fftshift(fft2(im_temp));                                    %G
         angle_f=angle(gk);                                             %theta
         g_k=f_abs.*exp(1i.*angle_f);                                   %G'
 %         im_temp_k=abs(ifft2(ifftshift(g_k))).*exp(1i.*imangle);
         im_temp_k=ifft2(ifftshift(g_k));                               %g'
     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
-    %     mask=(mask>0.5);
+    %     mask=(mask>0.5); 
         mask=(real(im_temp_k)<0);                                      %域的物理筛选条件   
         im_temp=(im_temp_k-b.*im_temp.*mask);                          %g(k+1） the HIO algorithm   b从0.7开始以0.95倍衰减若干次
 %         figure(11);imagesc(abs(im_temp));
@@ -232,6 +221,7 @@ for ii=1:100
 %     himFT=fftshift(fft2(him));
     
 end
+title('Phase retrieval');
 % for ii=1:100
 %     
 %     
@@ -247,7 +237,7 @@ end
 %     %     mask=(mask>0.5);
 %         mask=(real(im_temp_k)<0)+(imag(im_temp_k)~=0);                                      %域的物理筛选条件  
 %         mask=(mask>0.5);
-%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %g(k+1） the HIO algorithm   b从0.7开始以0.95倍衰减若干次
+%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %%% FEL? %g(k+1） the HIO algorithm   b从0.7开始以0.95倍衰减若干次
 % %          figure(12);imagesc(abs(im_temp));pause(0.001);
 %     end
 % 
@@ -287,6 +277,6 @@ end
 im_result=abs(im_temp);
 [xx,yy]=find(im_result==max(im_result(:)));
 im_result=circshift(im_result,[xc-xx(1),yc-yy(1)]);         %移到中心
-figure;imagesc(co_scatter);title('correaltion result');
-figure;imagesc(im_result);title('reconstructed image');     %输出gk的模大小
+figure;imagesc(co_scatter);title('Correlation result');
+figure;imagesc(im_result);title('Reconstructed image');     %输出gk的模大小
 % figure;imagesc(co_image);
