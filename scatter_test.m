@@ -1,5 +1,4 @@
-clear all;
-raw=imread('huan.png');
+raw=imread('huan1.png');
 
 raw=sum(double(raw),3);
 
@@ -19,13 +18,12 @@ yr=Y-yc;
 xr=X-xc;
 
 lamda=670;
-psize=(5500/1)/50;      %ÕâÉ¶°¡      
+pixelsize=(5500/1)/50;      %ÕâÉ¶°¡      
 NA=1.49;
 % NA=0.25;
 
 %% Generation of the PSF with Besselj.
 R=sqrt((xr).^2+(yr).^2);
-pixelsize=psize;
 pixelnum=xsize;
 rpixel=NA*pixelnum*pixelsize/lamda;          %ÓëÏÂÃæÔ²µÄ°ë¾¶ÓÐ¹Ø£¬µ«Õâ±í´ïÊ½Ê²Ã´ÒâË¼
 [M1,N1]=meshgrid(1:pixelnum,1:pixelnum);
@@ -37,7 +35,7 @@ apsfde=fftshift(ifft2(ifftshift(ctfde)));
 ipsfde=ifftscalede*abs(apsfde).^2;
 OTFde=fftshift(fft2(ifftshift(ipsfde)));            %£¿´¦ÀíÖ®ºóµÄÔ²£¨µÍÍ¨ÂË²¨Æ÷£©
 
-figure;imagesc(abs(OTFde));
+figure;imagesc(abs(OTFde));title('Generation of PSF');
 cutoff=OTFedgeF(abs(OTFde));
 cutoff=cutoff+round(cutoff*0.05);                  %cutoffµÄÒâÒåÊÇÊ²Ã´
 f_raw=fftshift(fft2(raw));
@@ -104,41 +102,66 @@ fourier_temp=fftshift(fft2(scatter)).*fmask;
 fourier_temp=fourier_temp.*conj(fourier_temp);
 % co_scatter=ifft2(ifftshift(fourier_temp));
 co_scatter=abs(fftshift(ifft2(fourier_temp)));            %×ÔÏà¹Ø£¬ÎÒ°ÑÕâÀïµÄfft¸Ä³ÉÁËifft
-
-%% subtract the background from the correaltion result
-
-a_edge=8;                                                                 %Õâ²¿·ÖºöÂÔ
-a=co_scatter(1:a_edge,1:a_edge);
-a_mean=mean2(a);
-a=co_scatter(xsize-a_edge+1:xsize,1:a_edge);
-a_mean=a_mean+mean2(a);
-a=co_scatter(1:a_edge,ysize-a_edge+1:ysize);
-a_mean=a_mean+mean2(a);
-a=co_scatter(xsize-a_edge+1:xsize:xsize,ysize-a_edge+1:ysize);
-a_mean=a_mean+mean2(a);
-my_mean(1)=a_mean/4;
+figure;imagesc(co_scatter);pause(0.001); title('Raw autocorrelation'); %%% Autocorrelation
 
 
+%% Subtracts background from the correlation result
 
-a_mask=zeros(xsize,ysize);                                                %¿´µÄÊÇÕâ²¿·Ö
-a_edge=round(xsize*0.08);
-a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
-a=1-a_mask;
-a=co_scatter.*a;
-a_num=find(a~=0);
-a_size=size(a_num(:));
-my_mean(2)=sum(sum(a))./max(a_size);
-ratio=0.85;
-my_mean(2)=my_mean(2)*ratio+max(a(:))*(1-ratio);
-my_mean=max(my_mean);                                                     %°Ñ±ßÔµµÄÆ½¾ù¹âÇ¿µ±×÷±³¾°Öµ
+%%% We will calculate the mean in two different ways and take the max value
+my_mean = zeros(1,2);
+edge_temp = 8;
+
+%%% 1) Gets mean value of corners
+%%% Gets the four corners of co_scatter
+scatter_corners = co_scatter([1:edge_temp, end-edge_temp+1: end], ...
+                             [1:edge_temp, end-edge_temp+1: end]);
+my_mean(1) = mean2(scatter_corners);
+
+%%% ---Original code---
+% a=co_scatter(1:edge_temp,1:edge_temp);
+% a_mean=mean2(a);
+% a=co_scatter(xsize-edge_temp+1:xsize,1:edge_temp);
+% a_mean=a_mean+mean2(a);
+% a=co_scatter(1:edge_temp,ysize-edge_temp+1:ysize);
+% a_mean=a_mean+mean2(a);
+% a=co_scatter(xsize-edge_temp+1:xsize:xsize,ysize-edge_temp+1:ysize);
+% a_mean=a_mean+mean2(a);
+% my_mean=a_mean/4;
+
+%%% 2) Gets mean value of a frame and weights with max value element in it
+weight = 0.85;
+
+edge_temp = round(xsize*0.08);
+mask_temp = zeros(xsize, ysize);
+mask_temp(edge_temp:xsize-edge_temp+1,edge_temp:xsize-edge_temp+1) = 1;
+ones_frame = 1-mask_temp;
+value_frame = co_scatter.*ones_frame;
+frame_count = numel(find(value_frame));
+my_mean(2) = weight*sum(sum((value_frame))/frame_count) + ...
+             (1-weight)*max(value_frame(:));
+
+%%% ---Original code---
+% a_mask=zeros(xsize,ysize);                                                
+% edge_temp=round(xsize*0.08);
+% a_mask(edge_temp:xsize-edge_temp+1,edge_temp:xsize-edge_temp+1)=1;
+% a=1-a_mask;
+% a=co_scatter.*a;
+% a_num=find(a~=0);
+% a_size=size(a_num(:));
+% my_mean(2)=sum(sum(a))./max(a_size);
+% ratio=0.85;
+% my_mean(2)=my_mean(2)*ratio+max(a(:))*(1-ratio);    %%% Takes most intensive pixel into account
+%my_mean=max(my_mean); 
+
+max_mean = max(my_mean);
 
 
-co_scatter=(co_scatter-my_mean).*(co_scatter-my_mean>0);                  %È¥±³¾°
-a_edge=round(xsize*0.15);
-a_mask=zeros(xsize,ysize);
-a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
-a_mask=imgaussfilt(a_mask,3);
-co_scatter=co_scatter.*a_mask;% force edges to 0                          %È¥µô×ÔÏà¹ØÍ¼ÏñµÄ±ßÔµ£¨²»ÊÇÒÑ¾­È¥ÁË±³¾°Ã´£©
+co_scatter=(co_scatter-max_mean).*(co_scatter-max_mean>0);                 
+edge_temp=round(xsize*0.15);
+mask_temp=zeros(xsize,ysize);
+mask_temp(edge_temp:xsize-edge_temp+1,edge_temp:xsize-edge_temp+1)=1;
+gauss_filter=imgaussfilt(mask_temp,3); %%% SD = 3
+co_scatter=co_scatter.*gauss_filter;% force edges to 0                          
 
 
 % PSFd = real(fftshift( ifft2(fftshift(abs(OTFde).^3)) ));
@@ -151,7 +174,12 @@ co_scatter=co_scatter.*a_mask;% force edges to 0                          %È¥µô×
 
 
 im_temp=co_scatter;
-figure;imagesc(im_temp);pause(0.001);
+figure;imagesc(im_temp);pause(0.001); title('Correlation result 2');
+
+return; %%% Stops program (temp)
+
+%% Phase retrieval
+
 % im_temp=(co_scatter./max(max(co_scatter)))*10^4;
 % im_temp=(im_temp-50).*(im_temp-50>0);
 [xsize,ysize]=size(im_temp);
@@ -176,8 +204,6 @@ b=0.7;                                                      %bµÄ³õÊ¼Öµ
 % im_temp=abs(fftshift(fft2(f_temp)));
 % angle_f=rand([xsize,ysize]);
 
-%% Phase retrieval
-
 for ii=1:100
 
     
@@ -199,14 +225,14 @@ for ii=1:100
     end
     
     for jj=1:25
-        imangle=angle(im_temp);                                        %ÎÞÐ§
+%%%     imangle=angle(im_temp);                                        %ÎÞÐ§
         gk=fftshift(fft2(im_temp));                                    %G
         angle_f=angle(gk);                                             %theta
         g_k=f_abs.*exp(1i.*angle_f);                                   %G'
 %         im_temp_k=abs(ifft2(ifftshift(g_k))).*exp(1i.*imangle);
         im_temp_k=ifft2(ifftshift(g_k));                               %g'
     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
-    %     mask=(mask>0.5);
+    %     mask=(mask>0.5); 
         mask=(real(im_temp_k)<0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼þ   
         im_temp=(im_temp_k-b.*im_temp.*mask);                          %g(k+1£© the HIO algorithm   b´Ó0.7¿ªÊ¼ÒÔ0.95±¶Ë¥¼õÈô¸É´Î
 %         figure(11);imagesc(abs(im_temp));
@@ -232,6 +258,7 @@ for ii=1:100
 %     himFT=fftshift(fft2(him));
     
 end
+title('Phase retrieval');
 % for ii=1:100
 %     
 %     
@@ -247,7 +274,7 @@ end
 %     %     mask=(mask>0.5);
 %         mask=(real(im_temp_k)<0)+(imag(im_temp_k)~=0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼þ  
 %         mask=(mask>0.5);
-%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %g(k+1£© the HIO algorithm   b´Ó0.7¿ªÊ¼ÒÔ0.95±¶Ë¥¼õÈô¸É´Î
+%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %%% FEL? %g(k+1£© the HIO algorithm   b´Ó0.7¿ªÊ¼ÒÔ0.95±¶Ë¥¼õÈô¸É´Î
 % %          figure(12);imagesc(abs(im_temp));pause(0.001);
 %     end
 % 
@@ -287,6 +314,6 @@ end
 im_result=abs(im_temp);
 [xx,yy]=find(im_result==max(im_result(:)));
 im_result=circshift(im_result,[xc-xx(1),yc-yy(1)]);         %ÒÆµ½ÖÐÐÄ
-figure;imagesc(co_scatter);title('correaltion result');
-figure;imagesc(im_result);title('reconstructed image');     %Êä³ögkµÄÄ£´óÐ¡
+figure;imagesc(co_scatter);title('Correlation result');
+figure;imagesc(im_result);title('Reconstructed image');     %Êä³ögkµÄÄ£´óÐ¡
 % figure;imagesc(co_image);
