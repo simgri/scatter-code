@@ -19,7 +19,7 @@ yr=Y-yc;
 xr=X-xc;
 
 lamda=670;
-psize=(5500/1)/50;      %ÕâÉ¶°¡      
+psize=(5500/1)/50;      %è¿™å•¥å•Š      
 NA=1.49;
 % NA=0.25;
 
@@ -27,25 +27,26 @@ NA=1.49;
 R=sqrt((xr).^2+(yr).^2);
 pixelsize=psize;
 pixelnum=xsize;
-rpixel=NA*pixelnum*pixelsize/lamda;          %ÓëÏÂÃæÔ²µÄ°ë¾¶ÓĞ¹Ø£¬µ«Õâ±í´ïÊ½Ê²Ã´ÒâË¼
+rpixel=NA*pixelnum*pixelsize/lamda;          %Relevant with the circle down below,but what does this expression meanä¸ä¸‹é¢åœ†çš„åŠå¾„æœ‰å…³ï¼Œä½†è¿™è¡¨è¾¾å¼ä»€ä¹ˆæ„æ€
 [M1,N1]=meshgrid(1:pixelnum,1:pixelnum);
-ctfde=ones(pixelnum,pixelnum).*(((N1-(pixelnum+1)/2)/rpixel).^2+((M1-(pixelnum+1)/2)/rpixel).^2<=1);    %»­ÁË¸öÔ²
+ctfde=ones(pixelnum,pixelnum).*(((N1-(pixelnum+1)/2)/rpixel).^2+((M1-(pixelnum+1)/2)/rpixel).^2<=1);    %A circleç”»äº†ä¸ªåœ†
 ctfdeSignificantPix=numel(find(abs(ctfde)>eps(class(ctfde))));
-ifftscalede=numel(ctfde)/ctfdeSignificantPix;       %¾ØÕóÖĞÔ²µÄ±ÈÀıµÄµ¹Êı
+ifftscalede=numel(ctfde)/ctfdeSignificantPix;       %inverse of cirlce's portion in the matrixçŸ©é˜µä¸­åœ†çš„æ¯”ä¾‹çš„å€’æ•°
 
 apsfde=fftshift(ifft2(ifftshift(ctfde)));
 ipsfde=ifftscalede*abs(apsfde).^2;
-OTFde=fftshift(fft2(ifftshift(ipsfde)));            %£¿´¦ÀíÖ®ºóµÄÔ²£¨µÍÍ¨ÂË²¨Æ÷£©
+OTFde=fftshift(fft2(ifftshift(ipsfde)));            %ï¼Ÿcircle after low filtering passå¤„ç†ä¹‹åçš„åœ†ï¼ˆä½é€šæ»¤æ³¢å™¨ï¼‰
 
 figure;imagesc(abs(OTFde));
 cutoff=OTFedgeF(abs(OTFde));
-cutoff=cutoff+round(cutoff*0.05);                  %cutoffµÄÒâÒåÊÇÊ²Ã´
+cutoff=cutoff+round(cutoff*0.05);                  %What is the meaning of cutoff, cutoffçš„æ„ä¹‰æ˜¯ä»€ä¹ˆ
 f_raw=fftshift(fft2(raw));
-raw=ifft2(ifftshift(f_raw.*OTFde));                %Ô­Í¼Ïñ½øĞĞÁËµÍÍ¨ÂË²¨
+raw=ifft2(ifftshift(f_raw.*OTFde));                %Low filtering pass on the original pictureåŸå›¾åƒè¿›è¡Œäº†ä½é€šæ»¤æ³¢
 
 fmask=circle(1.1*(xsize+ysize)./(2*cutoff),xsize,ysize);
-fmask=imgaussfilt(fmask,10);                       %ÓÖ»¨ÁË¸öÔ²£¬°ë¾¶ÓÉcutoff¾ö¶¨
-                                                   %Ô²ÊÇÄ£Äâ³ÉÏñÍ¸¾µµÄµÍÍ¨ÂË²¨Ã´£¬ÎªÊ²Ã´ÒªÁ½¸öÔ²£¬¶øÇÒ»¹½øĞĞÁËÄ£ºı
+fmask=imgaussfilt(fmask,10);                       %Draw another circle, radie depends on cutoff,åˆèŠ±äº†ä¸ªåœ†ï¼ŒåŠå¾„ç”±cutoffå†³å®š
+                                                   %Is the cirlce low filtering pass for the simulation of imaging lens?Why two circle and why blur it
+                                                   %åœ†æ˜¯æ¨¡æ‹Ÿæˆåƒé€é•œçš„ä½é€šæ»¤æ³¢ä¹ˆï¼Œä¸ºä»€ä¹ˆè¦ä¸¤ä¸ªåœ†ï¼Œè€Œä¸”è¿˜è¿›è¡Œäº†æ¨¡ç³Š
 
 my_angle=pi/3;
 kx=cos(my_angle);
@@ -62,7 +63,7 @@ pmask=ctfde.*exp(1i*scatter);
 apsf=fftshift(ifft2(ifftshift(pmask)));
 ipsf=ifftscalede*abs(apsf).^2;
 ipsf=ipsf-min(ipsf(:));
-OTF_scatter=fftshift(fft2(ifftshift(ipsf)));                     %Ëæ»úpsfµÄÉú³É
+OTF_scatter=fftshift(fft2(ifftshift(ipsf)));                     %Generation of the random psf éšæœºpsfçš„ç”Ÿæˆ
 % pmask=pmask./abs(pmask);
 i_f=fftshift(fft2(pattern_temp));
 % test=i_f.*pmask;
@@ -103,11 +104,11 @@ scatter=im_test;
 fourier_temp=fftshift(fft2(scatter)).*fmask;
 fourier_temp=fourier_temp.*conj(fourier_temp);
 % co_scatter=ifft2(ifftshift(fourier_temp));
-co_scatter=abs(fftshift(ifft2(fourier_temp)));            %×ÔÏà¹Ø£¬ÎÒ°ÑÕâÀïµÄfft¸Ä³ÉÁËifft
+co_scatter=abs(fftshift(ifft2(fourier_temp)));            %Autocorrelation. I changed ifft to fftè‡ªç›¸å…³ï¼Œæˆ‘æŠŠè¿™é‡Œçš„fftæ”¹æˆäº†ifft
 
 %% subtract the background from the correaltion result
 
-a_edge=8;                                                                 %Õâ²¿·ÖºöÂÔ
+a_edge=8;                                                                 %Ignore this partè¿™éƒ¨åˆ†å¿½ç•¥
 a=co_scatter(1:a_edge,1:a_edge);
 a_mean=mean2(a);
 a=co_scatter(xsize-a_edge+1:xsize,1:a_edge);
@@ -120,7 +121,7 @@ my_mean(1)=a_mean/4;
 
 
 
-a_mask=zeros(xsize,ysize);                                                %¿´µÄÊÇÕâ²¿·Ö
+a_mask=zeros(xsize,ysize);                                                %Look at this partçœ‹çš„æ˜¯è¿™éƒ¨åˆ†
 a_edge=round(xsize*0.08);
 a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
 a=1-a_mask;
@@ -130,15 +131,15 @@ a_size=size(a_num(:));
 my_mean(2)=sum(sum(a))./max(a_size);
 ratio=0.85;
 my_mean(2)=my_mean(2)*ratio+max(a(:))*(1-ratio);
-my_mean=max(my_mean);                                                     %°Ñ±ßÔµµÄÆ½¾ù¹âÇ¿µ±×÷±³¾°Öµ
+my_mean=max(my_mean);                                                     %Use the average intensity on the edhe as backgroundæŠŠè¾¹ç¼˜çš„å¹³å‡å…‰å¼ºå½“ä½œèƒŒæ™¯å€¼
 
 
-co_scatter=(co_scatter-my_mean).*(co_scatter-my_mean>0);                  %È¥±³¾°
+co_scatter=(co_scatter-my_mean).*(co_scatter-my_mean>0);                  %Remove the backgroundå»èƒŒæ™¯
 a_edge=round(xsize*0.15);
 a_mask=zeros(xsize,ysize);
 a_mask(a_edge:xsize-a_edge+1,a_edge:xsize-a_edge+1)=1;
 a_mask=imgaussfilt(a_mask,3);
-co_scatter=co_scatter.*a_mask;% force edges to 0                          %È¥µô×ÔÏà¹ØÍ¼ÏñµÄ±ßÔµ£¨²»ÊÇÒÑ¾­È¥ÁË±³¾°Ã´£©
+co_scatter=co_scatter.*a_mask;% force edges to 0                          %Remove the background of the autocorrelationå»æ‰è‡ªç›¸å…³å›¾åƒçš„è¾¹ç¼˜ï¼ˆä¸æ˜¯å·²ç»å»äº†èƒŒæ™¯ä¹ˆï¼‰
 
 
 % PSFd = real(fftshift( ifft2(fftshift(abs(OTFde).^3)) ));
@@ -168,10 +169,10 @@ initial_guess=abs(initial_guess);                           %?
 % f_abs=f_abs.*fmask;
 
 f_initial=fftshift(fft2(initial_guess));
-f_initial=f_initial.*fmask;                                 %×îÇ°ÃæµÄfmask£¬µÍÍ¨ÂË²¨
-im_temp=abs(ifft2(ifftshift(f_initial)));                   %?Î´Öª´¦ÀíºóµÄµÄg',±ä³ÉÁË³õÊ¼ÏÂÒ»²¿·ÖµÄ³õÊ¼g
+f_initial=f_initial.*fmask;                                 %The most front fmask, low filtering passæœ€å‰é¢çš„fmaskï¼Œä½é€šæ»¤æ³¢
+im_temp=abs(ifft2(ifftshift(f_initial)));                   %?g' after unknown process, becomes the start g in the stepæœªçŸ¥å¤„ç†åçš„çš„g',å˜æˆäº†åˆå§‹ä¸‹ä¸€éƒ¨åˆ†çš„åˆå§‹g
 % im_temp=ones(xsize,ysize);
-b=0.7;                                                      %bµÄ³õÊ¼Öµ
+b=0.7;                                                      %initial value of b,bçš„åˆå§‹å€¼
 % angle_f=0.5*angle(f_raw);
 % im_temp=abs(fftshift(fft2(f_temp)));
 % angle_f=rand([xsize,ysize]);
@@ -181,11 +182,11 @@ b=0.7;                                                      %bµÄ³õÊ¼Öµ
 for ii=1:100
 
     
-    im_temp_o=im_temp;                                                 %³õÊ¼g
+    im_temp_o=im_temp;                                                 %Initiat g,åˆå§‹g
     
     
     for jj=1:5
-        imangle=angle(im_temp);                                        %ÎŞĞ§
+        imangle=angle(im_temp);                                        %Not workingæ— æ•ˆ
         gk=fftshift(fft2(im_temp));                                    %G
         angle_f=angle(gk);                                             %theta
         g_k=f_abs.*exp(1i.*angle_f);                                   %G'
@@ -193,13 +194,13 @@ for ii=1:100
         im_temp_k=ifft2(ifftshift(g_k));                               %g'
     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
     %     mask=(mask>0.5);
-        mask=(real(im_temp_k)>0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼ş
-        im_temp=im_temp_k.*mask;                                       %g(k+1£© the Error-reduction algorithm.
+        mask=(real(im_temp_k)>0);                                      %Physical constraintåŸŸçš„ç‰©ç†ç­›é€‰æ¡ä»¶
+        im_temp=im_temp_k.*mask;                                       %g(k+1ï¼‰ the Error-reduction algorithm.
 %         figure(11);imagesc(abs(im_temp));
     end
     
     for jj=1:25
-        imangle=angle(im_temp);                                        %ÎŞĞ§
+        imangle=angle(im_temp);                                        %Not workingæ— æ•ˆ
         gk=fftshift(fft2(im_temp));                                    %G
         angle_f=angle(gk);                                             %theta
         g_k=f_abs.*exp(1i.*angle_f);                                   %G'
@@ -207,15 +208,15 @@ for ii=1:100
         im_temp_k=ifft2(ifftshift(g_k));                               %g'
     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
     %     mask=(mask>0.5);
-        mask=(real(im_temp_k)<0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼ş   
-        im_temp=(im_temp_k-b.*im_temp.*mask);                          %g(k+1£© the HIO algorithm   b´Ó0.7¿ªÊ¼ÒÔ0.95±¶Ë¥¼õÈô¸É´Î
+        mask=(real(im_temp_k)<0);                                      %Physical constraintåŸŸçš„ç‰©ç†ç­›é€‰æ¡ä»¶   
+        im_temp=(im_temp_k-b.*im_temp.*mask);                          %g(k+1ï¼‰ the HIO algorithm   bä»0.7å¼€å§‹ä»¥0.95å€è¡°å‡è‹¥å¹²æ¬¡
 %         figure(11);imagesc(abs(im_temp));
     end
 
         
-    MSE(1,ii)=sum(sum(abs(im_temp_o-im_temp)));                        %Ä¿Ç°g£¨k£©Óë³õÊ¼gµÄ²îµÄ×ÜºÍ
-    if ii>1&&MSE(1,ii)>MSE(1,ii-1)                                     %Èç¹û±ÈÇ°Ò»¸öÑ­»·´ó £¿£¿
-        b=b*0.95;                                                      %bË¥¼õ
+    MSE(1,ii)=sum(sum(abs(im_temp_o-im_temp)));                        %difference between the current g(k) and the initial gç›®å‰gï¼ˆkï¼‰ä¸åˆå§‹gçš„å·®çš„æ€»å’Œ
+    if ii>1&&MSE(1,ii)>MSE(1,ii-1)                                     %If it is larger than the previous loopå¦‚æœæ¯”å‰ä¸€ä¸ªå¾ªç¯å¤§ ï¼Ÿï¼Ÿ
+        b=b*0.95;                                                      %B decrease bè¡°å‡
     end
         figure(11);imagesc(abs(im_temp));pause(0.001);
 %     temp_im1=im_temp;
@@ -235,7 +236,7 @@ end
 % for ii=1:100
 %     
 %     
-%     im_temp_o=im_temp;                                                 %³õÊ¼g
+%     im_temp_o=im_temp;                                                 %åˆå§‹g
 %     
 %     for jj=1:25
 %         gk=fftshift(fft2(im_temp));                                    %G
@@ -245,16 +246,16 @@ end
 %         im_temp_k=ifft2(ifftshift(g_k));                               %g'
 %     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
 %     %     mask=(mask>0.5);
-%         mask=(real(im_temp_k)<0)+(imag(im_temp_k)~=0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼ş  
+%         mask=(real(im_temp_k)<0)+(imag(im_temp_k)~=0);                                      %Physical constraintåŸŸçš„ç‰©ç†ç­›é€‰æ¡ä»¶  
 %         mask=(mask>0.5);
-%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %g(k+1£© the HIO algorithm   b´Ó0.7¿ªÊ¼ÒÔ0.95±¶Ë¥¼õÈô¸É´Î
+%         im_temp=abs(im_temp_k-b.*im_temp.*mask);                          %g(k+1ï¼‰ the HIO algorithm   bä»0.7å¼€å§‹ä»¥0.95å€è¡°å‡è‹¥å¹²æ¬¡
 % %          figure(12);imagesc(abs(im_temp));pause(0.001);
 %     end
 % 
 % %  b=b-0.04;       
-%     MSE(1,ii)=sum(sum(abs(im_temp_o-im_temp)));                        %Ä¿Ç°g£¨k£©Óë³õÊ¼gµÄ²îµÄ×ÜºÍ
-%     if ii>1&&MSE(1,ii)>MSE(1,ii-1)                                     %Èç¹û±ÈÇ°Ò»¸öÑ­»·´ó £¿£¿
-%         b=b*0.95;                                                      %bË¥¼õ
+%     MSE(1,ii)=sum(sum(abs(im_temp_o-im_temp)));                        %difference between the cureent g(k) and the inital gç›®å‰gï¼ˆkï¼‰ä¸åˆå§‹gçš„å·®çš„æ€»å’Œ
+%     if ii>1&&MSE(1,ii)>MSE(1,ii-1)                                     %If it is larger than the previous loopå¦‚æœæ¯”å‰ä¸€ä¸ªå¾ªç¯å¤§ ï¼Ÿï¼Ÿ
+%         b=b*0.95;                                                      %Then b decrease bè¡°å‡
 %     end
 %         figure(11);imagesc(abs(im_temp));pause(0.001);
 % %     temp_im1=im_temp;
@@ -279,14 +280,14 @@ end
 %         im_temp_k=ifft2(ifftshift(g_k));                               %g'
 %     %     mask=(abs(imag(im_temp_k))~=0)+(real(im_temp_k)<0);
 %     %     mask=(mask>0.5);
-%         mask=(real(im_temp_k)>0);                                      %ÓòµÄÎïÀíÉ¸Ñ¡Ìõ¼ş
-%         im_temp=im_temp_k.*mask;                                       %g(k+1£© the Error-reduction algorithm.
+%         mask=(real(im_temp_k)>0);                                      %Physical constraintåŸŸçš„ç‰©ç†ç­›é€‰æ¡ä»¶
+%         im_temp=im_temp_k.*mask;                                       %g(k+1ï¼‰ the Error-reduction algorithm.
 %          figure(11);imagesc(abs(im_temp));pause(0.001);
 %     end
 %% Display results
 im_result=abs(im_temp);
 [xx,yy]=find(im_result==max(im_result(:)));
-im_result=circshift(im_result,[xc-xx(1),yc-yy(1)]);         %ÒÆµ½ÖĞĞÄ
+im_result=circshift(im_result,[xc-xx(1),yc-yy(1)]);         %ç§»åˆ°ä¸­å¿ƒ
 figure;imagesc(co_scatter);title('correaltion result');
-figure;imagesc(im_result);title('reconstructed image');     %Êä³ögkµÄÄ£´óĞ¡
+figure;imagesc(im_result);title('reconstructed image');     %è¾“å‡ºgkçš„æ¨¡å¤§å°
 % figure;imagesc(co_image);
